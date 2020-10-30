@@ -1,0 +1,102 @@
+---
+title: "STA304 ps4"
+author: "Bowen Han"
+date: "2020/10/30"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(haven)
+library(tidyverse)
+#### *****Data Selection & Cleaning*****####
+#### Survey data -Load and select####
+setwd("E:\\u of t\\sta304\\sta304 ps4")
+raw_data_survey <- read_dta("ns20200625.dta")
+raw_data_survey <- labelled::to_factor(raw_data_survey)
+# Just keep some variables-make sure it exists in census data as well (except for vote intention)
+reduced_data_survey <- 
+  raw_data_survey %>% 
+  select(vote_2020,
+         age,
+         gender,
+         education,
+         state,
+         household_income,
+         race_ethnicity,
+         census_region,
+         employment,
+         vote_intention,
+         registration
+         )
+#Adjust Data types
+reduced_data_survey$age<-as.numeric(reduced_data_survey$age)
+# Filter on survey data
+#Filte those pepople that would not vote for 2020 election out
+filtered_data_survey<-reduced_data_survey %>% 
+  filter(registration=="Registered"&
+           age > 17&
+           (vote_intention=="Not sure"|
+           vote_intention=="Yes, I will vote")&
+           (vote_2020=="Donald Trump"|
+              vote_2020=="Joe Biden")
+  )
+#Drop NAs (4294 out of 6479 kept)
+filtered_data_survey<-na.omit(filtered_data_survey)
+
+# Get the library.
+library("plotrix")
+D <- sum(filtered_data_survey$vote_2020=="Donald Trump")
+D <- as.numeric(D)
+B <- sum(filtered_data_survey$vote_2020=="Joe Biden")
+B <- as.numeric(B)
+survey_2020 <- as.numeric(c(B,D))
+piepercent<- paste(round(100*survey_2020/sum(survey_2020), 2), "%")
+
+
+levels(filtered_data_survey$employment)
+
+#Mutate Variables
+#Creat a new dataset after mutating race_ethnicity
+mutate_data_survey<-filtered_data_survey %>% 
+  mutate(race_ethnicity1 = case_when(race_ethnicity=="White"~"White",
+                                     race_ethnicity=="Asian (Chinese)"~"Chinese",
+                                     race_ethnicity=="Asian (Japanese)"~"Japanese", 
+                                     race_ethnicity=="Black, or African American"~"Black, or African American",
+                                     race_ethnicity=="American Indian or Alaska Native"~"American Indian or Alaska Native",
+                                     race_ethnicity=="Asian (Other)" | race_ethnicity=="Asian (Asian Indian)" | race_ethnicity=="Asian (Korean)" | race_ethnicity=="Asian (Filipino)" | race_ethnicity=="Asian (Vietnamese)" | race_ethnicity=="Pacific Islander (Samoan)" | race_ethnicity=="Pacific Islander (Other)" | race_ethnicity=="Pacific Islander (Guamanian)" | race_ethnicity=="Pacific Islander (Native Hawaiian)"~"Other asian or pacific islander",
+                                     race_ethnicity=="Some other race"~"Other"))
+#Put the contains in new column to the original column
+mutate_data_survey$race_ethnicity <- mutate_data_survey$race_ethnicity1
+#Remove the new column
+mutate_data_survey$race_ethnicity1<-NULL
+#Creat a new column and mutate the employment
+mutate_data_survey<-mutate_data_survey %>%
+  mutate(employment1 = case_when(  employment=="Full-time employed" | employment=="Homemaker" | employment=="Part-time employed" | employment=="Self-employed"~"Employed",
+                                   employment=="Unemployed or temporarily on layoff"~"Unemployed or temporarily on layoff",
+                                   employment=="Retired"|employment=="Student"|employment=="Other:"|employment=="Permanently disabled"~"Not in labor force"))
+
+
+
+#Put the contains in new column to the original column
+mutate_data_survey$employment <- mutate_data_survey$employment1
+#Remove the new column
+mutate_data_survey$employment1<-NULL
+
+unique(mutate_data_survey$employment)
+unique(mutate_data_survey$race_ethnicity)
+
+
+
+# Plot the chart.
+pie3D(survey_2020,labels = piepercent, explode = 0.1, main = "Compared Support Rate between Donald Trump and Joe Biden Figure 1.1")
+legend("topright", c("Joe Biden","Donald Trump"), cex = 0.8,fill = rainbow(length(survey_2020)))
+```
+The Figure 1.1 is about the response variable that will be used in Logistic model in part3. It shows that in survey on 2020-06-25, a narrow majority saied yes to Joe Biden. Exclude those people who vote for other than Donald Trump and Joe Biden, Joe Biden only ahead by just 5 points.
+
+```{r}
+#Not finish yet.....
+```
