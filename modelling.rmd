@@ -11,12 +11,22 @@ library(survey)
 #read the cleaned survey data file
 mutate_data_survey <- read.csv("mutate_data_survey.csv")
 
+#divide age into 4 groups
+mutate_data_survey <- mutate_data_survey %>% 
+  mutate(age_group = case_when(age >= 18 & age <= 29 ~ "ages18to29",
+                                age>=30 & age <= 44 ~ "ages30to44",
+                                age>=45 & age <= 59 ~ "ages45to59",
+                                age>=60 ~ "ages60plus"))
+unique(mutate_data_survey$age_group) # create a new column
+mutate_data_survey$age <- NULL # delete the origional column
+mutate_data_survey <- na.omit(mutate_data_survey) # check if all samples are inclued, this line should not make any changes to the dataset
+
 #make the y variable binary such that 1 indicates Donald Trump and 0 indicates Joe Biden
 mutate_data_survey$vote_2020 <- as.factor(mutate_data_survey$vote_2020)
 levels(mutate_data_survey$vote_2020) <- c(1,0)
 
 #fit a logistic regression model to it
-svymodel <- glm(vote_2020 ~ age + gender + race_ethnicity 
+svymodel <- glm(vote_2020 ~ age_group + gender
                 + employment,
                    data = mutate_data_survey,
                    family="binomial")
@@ -33,17 +43,29 @@ N = 150000000
 fpc.srs = rep(N, n)
 
 svy.srs <- svydesign(id=~1, data=mutate_data_survey, fpc=fpc.srs)
-mysvyglm <- svyglm(vote_2020~age+gender+race_ethnicity+employment,
+mysvyglm <- svyglm(vote_2020~age_group+gender+employment,
                    svy.srs, family="binomial")
 #summary after the srs process
 summary(mysvyglm)
 
+#Read the ACS data file
 clean_acs_data <- read.csv("Clean ACS DATA V6.csv")
-head(clean_acs_data)
+
+#divide age into 4 groups
+clean_acs_data <- clean_acs_data %>% 
+  mutate(age_group = case_when(age >= 18 & age <= 29 ~ "ages18to29",
+                                age>=30 & age <= 44 ~ "ages30to44",
+                                age>=45 & age <= 59 ~ "ages45to59",
+                                age>=60 ~ "ages60plus"))
+unique(clean_acs_data$age_group) # create a new column
+clean_acs_data$age <- NULL # delete the origional column
+clean_acs_data <- na.omit(clean_acs_data) # check if all samples are inclued, this line should not make any changes to the dataset
 
 clean_acs_data$estimate <- 
   mysvyglm%>%
   predict(newdata=clean_acs_data)
 
 ```
+
+
 
