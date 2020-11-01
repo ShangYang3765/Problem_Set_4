@@ -1,0 +1,49 @@
+---
+title: "modelling part"
+author: "Rachel Oh"
+date: "01/11/2020"
+output: pdf_document
+---
+```{r}
+#install.packages("survey")
+library(survey)
+
+#read the cleaned survey data file
+mutate_data_survey <- read.csv("mutate_data_survey.csv")
+
+#make the y variable binary such that 1 indicates Donald Trump and 0 indicates Joe Biden
+mutate_data_survey$vote_2020 <- as.factor(mutate_data_survey$vote_2020)
+levels(mutate_data_survey$vote_2020) <- c(1,0)
+
+#fit a logistic regression model to it
+svymodel <- glm(vote_2020 ~ age + gender + race_ethnicity 
+                + employment,
+                   data = mutate_data_survey,
+                   family="binomial")
+
+#summary
+summary(svymodel)
+
+### srs process ###
+#sample size
+n = length(mutate_data_survey$age)
+#population size
+N = 150000000
+#there's a vector of 150000000s 4294 times
+fpc.srs = rep(N, n)
+
+svy.srs <- svydesign(id=~1, data=mutate_data_survey, fpc=fpc.srs)
+mysvyglm <- svyglm(vote_2020~age+gender+race_ethnicity+employment,
+                   svy.srs, family="binomial")
+#summary after the srs process
+summary(mysvyglm)
+
+clean_acs_data <- read.csv("Clean ACS DATA V6.csv")
+head(clean_acs_data)
+
+clean_acs_data$estimate <- 
+  mysvyglm%>%
+  predict(newdata=clean_acs_data)
+
+```
+
