@@ -1,0 +1,223 @@
+---
+title: "Raw data cleaning"
+author: "Haoyu Zhang"
+date: "29/10/2020"
+output: html_document
+---
+
+```{r,include=F}
+# first thing to do is to read the data
+library(haven)
+library(tidyverse)
+acs_raw <- read_dta("PS 4/ACS_raw.dta") # read the raw data
+acs_raw <- labelled::to_factor(acs_raw) # transform the data structure from code to what the code represents with the labels stored in the .dta files
+names(acs_raw) #view the list of column names of the data in order to choose from it
+acs_reduced <- 
+  acs_raw %>% 
+  select(perwt,
+         citizen,
+         statefip,
+         sex,
+         age,
+         race,
+         educd,
+         empstatd,
+         hhincome,
+         region
+  ) # choose the desired variables that are interested in
+rm(acs_raw)
+```
+
+```{r,include=F}
+###FILTER
+#now we want to combine some variables together in order to fit the outcome variables in UCLA survey. The outcome of ACS data is much more detailed than what we want. Therefore a lot of variables are combined and renamed.
+acs_reduced$age<-as.numeric(acs_reduced$age) # change variable type to number
+acs_reduced$hhincome<-as.numeric(acs_reduced$hhincome) # change variable type to number
+acs_reduced <- subset(acs_reduced,acs_reduced$age >= 18) # remove the underaged samples
+acs_reduced<- acs_reduced %>% filter(citizen=="naturalized citizen"|citizen=="born abroad of american parents") # leave only samples with the right to vote
+acs_reduced$hhincome<-ifelse(acs_reduced$hhincome==9999999,NaN,acs_reduced$hhincome) #transform the N/A in the income variable
+acs_filtered <- na.omit(acs_reduced) # remove any N/A
+# by now, we have 69021 qualified samples
+```
+
+```{r,include=F}
+###INCOME
+# From here below, we will map the data by combining variables in order to fit the survey data
+acs_mapping <- acs_filtered %>% 
+  mutate(household_income = case_when(hhincome <= 14999 ~ "Less than $14,999",hhincome >= 15000 & hhincome <= 19999~"$15,000 to $19,999",hhincome >= 20000 & hhincome <= 24999~"$20,000 to $24,999",hhincome>=25000 & hhincome <= 29999~"$25,000 to $29,999",hhincome >= 30000 & hhincome <= 34999~"$30,000 to $34,999",hhincome >= 35000 & hhincome <= 39999~"$35,000 to $39,999",hhincome>=40000 & hhincome <= 44999~"$40,000 to $44,999",hhincome >= 45000 & hhincome <= 49999~"$45,000 to $49,999",hhincome >= 50000 & hhincome <= 54999~"$50,000 to $54,999",hhincome >= 55000 & hhincome <= 59999~"$55,000 to $59,999",hhincome >= 60000 & hhincome <= 64999~"$60,000 to $64,999",hhincome >= 65000 & hhincome <= 69999~"$65,000 to $69,999",hhincome >= 70000 & hhincome <= 74999~"$70,000 to $74,999",hhincome >= 75000 & hhincome <= 79999~"$75,000 to $79,999",hhincome>=80000 & hhincome <= 84999~"$80,000 to $84,999",hhincome >= 85000 & hhincome<=89999~"$85,000 to $89,999",hhincome >= 90000 & hhincome <= 94999~"$90,000 to $94,999",hhincome>=95000 & hhincome <= 99999~"$95,000 to $99,999",hhincome>=100000 & hhincome<=124999~"$100,000 to $124,999",hhincome >= 125000 & hhincome <= 149999~"$125,000 to $149,999",hhincome >= 150000 & hhincome <= 174999~"$150,000 to $174,999",hhincome >= 175000 & hhincome <= 199999~"$175,000 to $199,999",hhincome >= 200000 & hhincome <= 249999~"$200,000 to $249,999",hhincome >= 250000~"$250,000 and above")
+) # Transform numeric income into income ranges by creating a new column.
+acs_mapping$hhincome<-NULL #remove the origional column
+unique(acs_mapping$household_income) # build a new column
+acs_mapping <- na.omit(acs_mapping) # check if all samples are inclued, this line should not make any changes to the dataset
+```
+
+```{r,include=F}
+###EDUCATION
+#the same thing done for ecucation data
+acs_mapping <- acs_mapping %>% 
+  mutate(education = case_when(educd == 'no schooling completed' | educd == 'nursery school, preschool' | educd == 'kindergarten' | educd == 'grade 1' | educd == 'grade 2' | educd == 'grade 3' |  educd == 'nursery school to grade 4' | educd == 'grade 1, 2, 3, or 4' ~ "3rd Grade or less", educd == 'grade 4' | educd == 'grade 5, 6, 7, or 8' | educd == 'grade 5 or 6' | educd == 'grade 5' | educd == 'grade 6' | educd == 'grade 7 or 8' | educd == 'grade 7' | educd == 'grade 8' ~ "Middle School - Grades 4 - 8", educd == 'grade 9' | educd == 'grade 10' | educd == 'grade 11' | educd == 'grade 12' | educd == '12th grade, no diploma' ~ "Completed some high school", educd == 'high school graduate or GED' | educd == 'regular high school diploma' ~ "High school graduate", educd == 'ged or alternative credential' ~ "Other post high school vocational training", educd == 'some college, but less than 1 year' | educd == '1 year of college' | educd == '1 or more years of college credit, no degree' | educd == '2 years of college' | educd == '3 years of college' | educd == '4 years of college' ~ "Completed some college, but no degree", educd == "associate's degree, type not specified" | educd == "associate's degree, occupational program" | educd == "associate's degree, academic program" ~ "Associate Degree", educd == "bachelor's degree" ~ "College Degree (such as B.A., B.S.)", educd == "5+ years of college" | educd == '6 years of college' | educd == '7 years of college' | educd == '8+ years of college' ~ "Completed some graduate, but no degree", educd == "master's degree" | educd == "professional degree beyond a bachelor's degree" ~ "Masters degree", educd == 'doctoral degree' ~ "Doctorate degree"
+  ))
+unique(acs_mapping$education) # create a new column
+acs_mapping$hhincome<-NULL # remove the origional column
+acs_mapping <- na.omit(acs_mapping) # check if all samples are inclued, this line should not make any changes to the dataset
+#Note that, there is no sample that falls in category "Completed some graduate, but no degree"
+```
+
+```{r,include=F}
+###STATE
+acs_mapping <-acs_mapping %>% 
+  mutate(state = case_when(statefip == "alabama"~"AL",statefip == "alaska"~"AK",statefip == "arizona"~"AZ",statefip == "arkansas"~"AR",statefip == "california"~"CA",statefip == "colorado"~"CO",statefip == "connecticut"~"CT",statefip == "delaware"~"DE",statefip == "florida"~"FL",statefip == "georgia"~"GA",statefip == "hawaii"~"HI",statefip == "idaho"~"ID",statefip == "illinois"~"IL",statefip == "indiana"~"IN",statefip == "iowa"~"IA",statefip == "kansas"~"KS",statefip == "kentucky"~"KY",statefip == "louisiana"~"LA",statefip == "maine"~"ME",statefip == "maryland"~"MD",statefip == "massachusetts"~"MA",statefip == "michigan"~"MI",statefip == "minnesota"~"MN",statefip == "mississippi"~"MS",statefip == "missouri"~"MO",statefip == "montana"~"MT",statefip == "nebraska"~"NE",statefip == "nevada"~"NV",statefip == "new hampshire"~"NH",statefip == "new jersey"~"NJ",statefip == "new mexico"~"NM",statefip == "new york"~"NY",statefip == "north carolina"~"NC",statefip == "north dakota"~"ND",statefip == "ohio"~"OH",statefip == "oklahoma"~"OK",statefip == "oregon"~"OR",statefip == "pennsylvania"~"PA",statefip == "rhode island"~"RI",statefip == "south carolina"~"SC",statefip == "south dakota"~"SD",statefip == "tennessee"~"TN",statefip == "texas"~"TX",statefip == "utah"~"UT",statefip == "vermont"~"VT",statefip == "virginia"~"VA",statefip == "washington"~"WA",statefip == "west virginia"~"WV",statefip == "wisconsin"~"WI",statefip == "wyoming"~"WY",statefip == "district of columbia"~"DC")) 
+
+acs_mapping$statefip<-NULL # remove the origional column
+unique(acs_mapping$state) # create a new column
+acs_mapping <- na.omit(acs_mapping) # check if all samples are inclued, this line should not make any changes to the dataset
+```
+
+```{r,include=F}
+###Census Region
+acs_mapping <- acs_mapping %>% 
+  mutate(census_region = case_when(region == 'new england division' | region == "middle atlantic division" ~ "Northeast", region == 'east north central div' | region == "west north central div" ~ "Midwest", region == 'south atlantic division' | region == 'east south central div' | region == 'west south central div' ~ "South", region == 'mountain division' | region == 'pacific division' ~ "West"))
+unique(acs_mapping$census_region) # create a new column
+acs_mapping$statefip<-NULL # remove the origional column
+acs_mapping <- na.omit(acs_mapping) # check if all samples are inclued, this line should not make any changes to the dataset
+```
+
+```{r,include=F}
+###Race
+acs_mapping <- acs_mapping %>% 
+  mutate(race_ethnicity = case_when(race=="white"~"White",race=="chinese"~"Chinese",race=="black/african american/negro"~"Black, or African American",race=="two major races" | race=="other race, nec" ~ "Other",race=="japanese"~"Japanese",race=="american indian or alaska native"~"American Indian or Alaska Native",race=="three or more major races"~"Other",race=="other asian or pacific islander"~"Other asian or pacific islander"))
+unique(acs_mapping$race_ethnicity) # create a new column
+acs_mapping$race<-NULL # delete the origional column
+acs_mapping <- na.omit(acs_mapping) # check if all samples are inclued, this line should not make any changes to the dataset
+```
+
+```{r,include=F}
+###Employment
+acs_mapping <- acs_mapping %>% 
+  mutate(employment = case_when(empstatd == "at work" | empstatd == "armed forces--at work" ~ "Employed", empstatd == "has job, not working" | empstatd == "armed forces--not at work but with job" | empstatd == "unemployed" ~ "Unemployed or temporarily on layoff", empstatd == "not in labor force" ~ "Not in labor force"))
+unique(acs_mapping$employment) # create a new column
+acs_mapping$empstatd<-NULL # delete the origional column
+acs_mapping <- na.omit(acs_mapping) # check if all samples are inclued, this line should not make any changes to the dataset
+```
+
+```{r,include=F}
+###Gender
+acs_mapping <- acs_mapping %>% 
+  mutate(gender = case_when(sex == "male" ~ "Male", sex == "female" ~ "Female"))
+unique(acs_mapping$gender) # create a new column
+acs_mapping$sex <- NULL # delete the origional column
+acs_mapping <- na.omit(acs_mapping) # check if all samples are inclued, this line should not make any changes to the dataset
+```
+
+```{r,include=F}
+###Age
+acs_mapping <- acs_mapping %>% 
+  mutate(age_group = case_when(age >= 18 & age <= 29 ~ "ages18to29",
+                                age>=30 & age <= 44 ~ "ages30to44",
+                                age>=45 & age <= 59 ~ "ages45to59",
+                                age>=60 ~ "ages60plus"))
+unique(acs_mapping$age_group) # create a new column
+acs_mapping$age <- NULL # delete the origional column
+acs_mapping <- na.omit(acs_mapping) # check if all samples are inclued, this line should not make any changes to the dataset
+```
+
+
+```{r,include=F}
+#create cells in the dataset
+acs_clean <- acs_mapping
+acs_clean%>% 
+  select(perwt,age_group,gender,employment,state)-> census_data # select only the variables needed in the model making process
+census_data$cell <- paste(census_data$gender,census_data$age_group,census_data$employment) # make the cell column
+cell_names <-c("age_group","gender","state","cell") # create cell names
+census_data[cell_names] <- lapply(census_data[cell_names], factor) # fill the cell column
+length(unique(census_data$cell)) # see how many cells are there and check if it is the same as the survey data
+prop.table(table(census_data$cell)) # see the proportion of each cell
+```
+
+
+```{r}
+#create a column containing the cell proportion
+census_data <- census_data %>% 
+  mutate(cell_prop = case_when(cell =='Female ages18to29 Employed'~0.026586111,cell == 'Female ages18to29 Not in labor force' ~
+                                          0.012344069,
+cell == 'Female ages18to29 Unemployed or temporarily on layoff' ~
+                                          0.002564437,
+                          cell ==  'Female ages30to44 Employed' ~
+                                          0.086814158,
+                cell ==  'Female ages30to44 Not in labor force' ~
+                                          0.024267976,
+cell == 'Female ages30to44 Unemployed or temporarily on layoff' ~
+                                          0.006157546,
+                         cell ==   'Female ages45to59 Employed' ~
+                                          0.129569262,
+                cell ==  'Female ages45to59 Not in labor force' ~
+                                          0.039190971,
+cell == 'Female ages45to59 Unemployed or temporarily on layoff' ~
+                                          0.007577404,
+                          cell ==  'Female ages60plus Employed' ~
+                                          0.058069283,
+                cell ==  'Female ages60plus Not in labor force' ~
+                                          0.148635922,
+cell == 'Female ages60plus Unemployed or temporarily on layoff' ~
+                                          0.003969806,
+                           cell ==   'Male ages18to29 Employed' ~
+                                          0.026644065,
+                  cell ==  'Male ages18to29 Not in labor force' ~
+                                          0.010199794,
+ cell ==  'Male ages18to29 Unemployed or temporarily on layoff' ~
+                                          0.002738297,
+                            cell ==  'Male ages30to44 Employed' ~
+                                          0.084046884,
+                  cell ==  'Male ages30to44 Not in labor force' ~
+                                          0.005838803,
+  cell == 'Male ages30to44 Unemployed or temporarily on layoff' ~
+                                          0.004418945,
+                          cell ==  'Male ages45to59 Employed' ~
+                                          0.133307254,
+                  cell ==  'Male ages45to59 Not in labor force' ~
+                                          0.012271627,
+  cell == 'Male ages45to59 Unemployed or temporarily on layoff' ~
+                                          0.005867779,
+                            cell ==  'Male ages60plus Employed' ~
+                                          0.068486403,
+                  cell ==  'Male ages60plus Not in labor force' ~
+                                          0.096231582,
+ cell ==  'Male ages60plus Unemployed or temporarily on layoff' ~
+                                          0.004201620 ))
+unique(census_data$cell_prop) # create new column
+
+```
+
+
+```{r}
+vote_2020_prob<-predict(mysvyglm,census_data,type="response")
+vote_2020_pred<-ifelse(vote_2020_prob>0.5,"Joe Biden","Donald Trump")
+census_result<-cbind(census_data,vote_2020_pred)
+
+census_result$trump<-ifelse(census_result$vote_2020_pred=="Donald Trump",census_result$perwt,0)
+census_result$biden<-ifelse(census_result$vote_2020_pred=="Joe Biden",census_result$perwt,0)
+sum(census_result$trump)
+sum(census_result$biden)
+
+```
+
+```{r}
+vote_2020_prob<-predict(mysvyglm,census_data,type="response")
+vote_2020_pred<-ifelse(vote_2020_prob>0.5,"Joe Biden","Donald Trump")
+census_result<-cbind(census_data,vote_2020_pred)
+
+census_result$trump<-ifelse(census_result$vote_2020_pred=="Donald Trump",census_result$cell_prop,0)
+census_result$biden<-ifelse(census_result$vote_2020_pred=="Joe Biden",census_result$cell_prop,0)
+sum(census_result$trump)
+sum(census_result$biden)
+```
+
+
+```{r}
+#This just me exporting the clean data as an file
+#THIS CHUNK SHOULD NOT BE INCLUDED IN THE REPORT
+library(writexl)
+write_csv(census_data,"Clean ACS DATA V8.csv",col_names = T)
+```
+
+
